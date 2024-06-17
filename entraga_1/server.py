@@ -1,50 +1,115 @@
+#TO-DO: Broadcast
+
+#IMPORTAÇÃO DE BIBLIOTECAS EXTERNAS
 import socket
+import struct
 import threading
+import queue
 import time
+import io
 
-# Configuração do servidor
-SERVER_IP = "127.0.0.1"
-SERVER_PORT = 12345
-BUFFER_SIZE = 1024
+#IMPORTAÇÃO DA BIBLIOTECA AUTORAL DO PROJETO
+from suport import database
+from suport import get_time_data
+from suport import convert_str_to_txt
 
-clients = {}
-usernames = {}
+#Definições de parâmetros fixos
+SERVER_ADDRESS = database.server_address
+BUFFER_SIZE = database.buffer_size
+HEADER_SIZE = database.header_size
 
-def broadcast(message, sender_address):
-    for client in clients:
-        if client != sender_address:
-            server_socket.sendto(message.encode(), client)
+clients_usernames = []
+clients_address = []
 
-def handle_client(data, address):
-    data = data.decode().strip()
-    if address not in usernames:
-        if data.startswith("hi, meu nome eh "):
-            username = data.split(" ", 4)[4]
-            usernames[address] = username
-            clients[address] = username
-            welcome_message = f"{username} entrou na sala."
-            broadcast(welcome_message, address)
-    else:
-        if data == "bye":
-            username = usernames.pop(address, None)
-            clients.pop(address, None)
-            bye_message = f"{username} saiu da sala."
-            broadcast(bye_message, address)
-        else:
-            username = usernames[address]
-            timestamp = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime())
-            formatted_message = f"{address[0]}:{address[1]}/~{username}: {data} {timestamp}"
-            broadcast(formatted_message, address)
+#Definindo que as mensagens serão armazenadas numa fila
+messages_queue = queue.Queue()
 
-def server():
-    while True:
-        data, address = server_socket.recvfrom(BUFFER_SIZE)
-        threading.Thread(target=handle_client, args=(data, address)).start()
-
-
+#Criando socket do servidor
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_socket.bind((SERVER_IP, SERVER_PORT))
-print(f"Servidor UDP rodando em {SERVER_IP}:{SERVER_PORT}")
+server_socket.bind((SERVER_ADDRESS))
 
-server_thread = threading.Thread(target=server)
-server_thread.start()
+#disconnect_user -> Função que desconecta um usuário
+#receive_message
+#send_to_all
+
+def reconstruct_message(received_message_list):
+    buffer = io.BytesIO()
+    for package in received_message_list:
+        buffer.write(package)
+    return buffer.getvalue()
+def receive_message():
+    received_packages = 0
+    received_message_list = []
+
+    while True:
+        try: #Conectar, Desconectar ou Mandar mensagem
+            initial_message, ip_client = server_socket.recvfrom(BUFFER_SIZE)
+
+            sign_up = initial_message.decode().startswith('*$*')
+            disconnect = initial_message.decode().startswith('*#*')
+
+            #COMANDO
+            if sign_up or disconnect:
+                messages_queue.put((initial_message, ip_client))
+
+            #MENSAGEM
+            else:
+                #Separando o header da mensagem
+                header = initial_message[:16]
+                message_received_bytes = initial_message[16:]
+
+                #Descompactando o header
+                packageSize, packageIndex, packagesQuantity, checksum = struct.unpack('!IIII', header)
+
+                if len(received_message_list) < packagesQuantity:
+                    extend = int(packageIndex - len(received_message_list))
+                    received_message_list.extend([''] * extend)
+
+                received_message_list[packageIndex] = message_received_bytes
+                received_packages += 1
+
+                if received_packages == packagesQuantity: #atenção
+                    reconstrcted_message = reconstruct_message(received_message_list)
+                    reconstrcted_message.decode()
+                    for address in clients_address:
+                        if address == ip_client:
+                            client_index = clients_address.index(address)
+                            name = clients_usernames[client_index]
+                            file = convert_str_to_txt.convert_str_to_txt(name, reconstrcted_message, backEnd=True)
+                            with open(file, 'r', ) as txt:
+                                message = f'{name}: {txt.read()}'.encode()
+                            messages_queue.put((message, ip_client))
+
+                            received_message_list = []
+                            received_packages = 0
+                            break
+
+                elif (packageIndex == packagesQuantity-1) and (received_packages < packagesQuantity):
+                    for address in clients_address:
+                        if address == ip_client:
+                            client_index = clients_address.index(address)
+                            name = clients_usernames[client_index]
+
+                            print(f'Algum pacote do usuário {name} foi perdido')
+                            received_packages = 0
+                            received_message_list = []
+
+        except UnicodeDecodeError:
+            print("Erro de decodificação: A mensagem não está no formato UTF-8.")
+            #Lida com o erro de decodificação da mensagem (por exemplo, ignora a mensagem)
+
+        except struct.error:
+            print("Erro de desempacotamento: O cabeçalho da mensagem está corrompido.")
+            #Lida com o erro de desempacotamento do cabeçalho (por exemplo, ignora a mensagem)
+
+        except socket.timeout:
+            print("Tempo limite excedido: Não foi possível receber a mensagem completa.")
+            #Lida com o erro de timeout (por exemplo, tenta receber novamente)
+
+def disconnetct_client(client_to_remove_address):
+    client_to_remove_index = int(clients_address.index(client_to_remove_address))
+    clients_address.remove(client_to_remove_index)
+    clients_usernames.pop(client_to_remove_index)
+
+
+
