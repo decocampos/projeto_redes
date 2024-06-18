@@ -1,115 +1,78 @@
-#TO-DO: Broadcast
-
-#IMPORTAÇÃO DE BIBLIOTECAS EXTERNAS
-import socket
-import struct
 import threading
+import struct
+import socket
 import queue
-import time
-import io
+from suport import database, get_time_data, convert_str_to_txt
+from zlib import crc32
 
-#IMPORTAÇÃO DA BIBLIOTECA AUTORAL DO PROJETO
-from suport import database
-from suport import get_time_data
-from suport import convert_str_to_txt
-
-#Definições de parâmetros fixos
-SERVER_ADDRESS = database.server_address
+SERVER_ADDRESS = database.server_address_tuple
 BUFFER_SIZE = database.buffer_size
 HEADER_SIZE = database.header_size
 
 clients_usernames = []
 clients_address = []
-
-#Definindo que as mensagens serão armazenadas numa fila
 messages_queue = queue.Queue()
 
-#Criando socket do servidor
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_socket.bind((SERVER_ADDRESS))
+server_socket.bind(SERVER_ADDRESS)
 
-#disconnect_user -> Função que desconecta um usuário
-#receive_message
-#send_to_all
 
-def reconstruct_message(received_message_list):
-    buffer = io.BytesIO()
-    for package in received_message_list:
-        buffer.write(package)
-    return buffer.getvalue()
 def receive_message():
-    received_packages = 0
-    received_message_list = []
 
     while True:
-        try: #Conectar, Desconectar ou Mandar mensagem
-            initial_message, ip_client = server_socket.recvfrom(BUFFER_SIZE)
+        initial_message, ip_client = server_socket.recvfrom(BUFFER_SIZE)
 
-            sign_up = initial_message.decode().startswith('*$*')
-            disconnect = initial_message.decode().startswith('*#*')
+        if initial_message.decode("ISO-8859-1").startswith('*$*') or initial_message.decode("ISO-8859-1").startswith('*#*'):
+            messages_queue.put((initial_message, ip_client))
+            continue
 
-            #COMANDO
-            if sign_up or disconnect:
-                messages_queue.put((initial_message, ip_client))
+        header = initial_message[:HEADER_SIZE]
+        message_received_bytes = initial_message[HEADER_SIZE:]
+        packageSize, packageIndex, packagesQuantity, checksum = struct.unpack('!IIII', header)
+        decoded_message = message_received_bytes.decode("ISO-8859-1")
 
-            #MENSAGEM
-            else:
-                #Separando o header da mensagem
-                header = initial_message[:16]
-                message_received_bytes = initial_message[16:]
+        if checksum != crc32(message_received_bytes):
+            decoded_message += ' [MENSAGEM COM PACOTE PERDIDO]'
 
-                #Descompactando o header
-                packageSize, packageIndex, packagesQuantity, checksum = struct.unpack('!IIII', header)
+        for address in clients_address:
+            if address == ip_client:
+                client_index = clients_address.index(address)
+                name = clients_usernames[client_index]
+                file = convert_str_to_txt.convert_str_to_txt(name, decoded_message, backEnd=True)
+                with open(file, 'r', encoding="ISO-8859-1") as txt:
+                    time = get_time_data.get_time_data()
+                    message = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{txt.read()}" {time}'.encode("ISO-8859-1")
+                messages_queue.put((message, ip_client))
 
-                if len(received_message_list) < packagesQuantity:
-                    extend = int(packageIndex - len(received_message_list))
-                    received_message_list.extend([''] * extend)
+def disconnetct_client(client_to_remove_address, name):
+    clients_address.remove(client_to_remove_address)
+    clients_usernames.remove(name)
 
-                received_message_list[packageIndex] = message_received_bytes
-                received_packages += 1
+def broadcast():
+    while True:
+        while messages_queue.qsize() != 0:
+            encoded_message, ip_client = messages_queue.get()
+            message = encoded_message.decode("ISO-8859-1")
+            message_split = message.split()
+            username_garbage = message_split[0]  #{username}
+            command = username_garbage[:3]
+            client_name = username_garbage[3:]
 
-                if received_packages == packagesQuantity: #atenção
-                    reconstrcted_message = reconstruct_message(received_message_list)
-                    reconstrcted_message.decode()
-                    for address in clients_address:
-                        if address == ip_client:
-                            client_index = clients_address.index(address)
-                            name = clients_usernames[client_index]
-                            file = convert_str_to_txt.convert_str_to_txt(name, reconstrcted_message, backEnd=True)
-                            with open(file, 'r', ) as txt:
-                                message = f'{name}: {txt.read()}'.encode()
-                            messages_queue.put((message, ip_client))
+            if command == "*$*":
+                clients_address.append(ip_client)
+                clients_usernames.append(client_name)
 
-                            received_message_list = []
-                            received_packages = 0
-                            break
-
-                elif (packageIndex == packagesQuantity-1) and (received_packages < packagesQuantity):
-                    for address in clients_address:
-                        if address == ip_client:
-                            client_index = clients_address.index(address)
-                            name = clients_usernames[client_index]
-
-                            print(f'Algum pacote do usuário {name} foi perdido')
-                            received_packages = 0
-                            received_message_list = []
-
-        except UnicodeDecodeError:
-            print("Erro de decodificação: A mensagem não está no formato UTF-8.")
-            #Lida com o erro de decodificação da mensagem (por exemplo, ignora a mensagem)
-
-        except struct.error:
-            print("Erro de desempacotamento: O cabeçalho da mensagem está corrompido.")
-            #Lida com o erro de desempacotamento do cabeçalho (por exemplo, ignora a mensagem)
-
-        except socket.timeout:
-            print("Tempo limite excedido: Não foi possível receber a mensagem completa.")
-            #Lida com o erro de timeout (por exemplo, tenta receber novamente)
-
-def disconnetct_client(client_to_remove_address):
-    client_to_remove_index = int(clients_address.index(client_to_remove_address))
-    clients_address.remove(client_to_remove_index)
-    clients_usernames.pop(client_to_remove_index)
+            elif command == "*#*":
+                disconnetct_client(ip_client, client_name)
+                encoded_message = f'{client_name} nao esta mais entre nos. :('.encode("ISO-8859-1")
 
 
+            for client in clients_address:
+                server_socket.sendto(encoded_message, client)
 
+
+receive_tread = threading.Thread(target=receive_message)
+broadcast_tread = threading.Thread(target=broadcast)
+
+receive_tread.start()
+broadcast_tread.start()
