@@ -2,6 +2,7 @@ import threading
 import struct
 import socket
 import queue
+import time
 from suport import database, get_time_data, convert_str_to_txt
 from zlib import crc32
 
@@ -21,9 +22,8 @@ def receive_message():
 
     while True:
         initial_message, ip_client = server_socket.recvfrom(BUFFER_SIZE)
-
         if initial_message.decode("ISO-8859-1").startswith('*$*') or initial_message.decode("ISO-8859-1").startswith('*#*'):
-            messages_queue.put((initial_message, ip_client))
+            messages_queue.put(('$#', initial_message, ip_client))
             continue
 
         header = initial_message[:HEADER_SIZE]
@@ -39,32 +39,36 @@ def receive_message():
                 client_index = clients_address.index(address)
                 name = clients_usernames[client_index]
                 file = convert_str_to_txt.convert_str_to_txt(name, decoded_message, backEnd=True)
-                with open(file, 'r', encoding="ISO-8859-1") as txt:
-                    time = get_time_data.get_time_data()
-                    message = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{txt.read()}" {time}'.encode("ISO-8859-1")
-                messages_queue.put((message, ip_client))
+                with open(file, encoding="ISO-8859-1") as txt:
+                    message = txt.read()
+                    time_data = get_time_data.get_time_data()
+                    message_to_send = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{message}" {time_data}'.encode("ISO-8859-1")
 
-def disconnetct_client(client_to_remove_address, name):
-    clients_address.remove(client_to_remove_address)
-    clients_usernames.remove(name)
+                    while messages_queue.qsize() > 0:
+                        time_to_wait = 0.1
+                        time.sleep(time_to_wait)
+
+                    messages_queue.put((packagesQuantity, message_to_send, ip_client))
 
 def broadcast():
     while True:
         while messages_queue.qsize() != 0:
-            encoded_message, ip_client = messages_queue.get()
+            package_quantity_or_command, encoded_message, ip_client = messages_queue.get()
             message = encoded_message.decode("ISO-8859-1")
-            message_split = message.split()
-            username_garbage = message_split[0]  #{username}
-            command = username_garbage[:3]
-            client_name = username_garbage[3:]
 
-            if command == "*$*":
-                clients_address.append(ip_client)
-                clients_usernames.append(client_name)
+            if package_quantity_or_command == "$#":
+                message_split = message.split()
+                username_garbage = message_split[0]
+                command = username_garbage[:3]
+                client_name = username_garbage[3:]
 
-            elif command == "*#*":
-                disconnetct_client(ip_client, client_name)
-                encoded_message = f'{client_name} nao esta mais entre nos. :('.encode("ISO-8859-1")
+                if command == "*$*":
+                    clients_address.append(ip_client)
+                    clients_usernames.append(client_name)
+
+                elif command == "*#*":
+                    clients_address.remove(ip_client)
+                    clients_usernames.remove(client_name)
 
 
             for client in clients_address:
