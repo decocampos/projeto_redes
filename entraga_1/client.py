@@ -72,11 +72,11 @@ def client():
             while charactesrs:
 
                 message_bytearray = bytearray()
-                checksum = crc32(encoded_characters[:PACKAGE_SIZE])
+                hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
 
                 message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
                 encoded_characters = encoded_characters[PACKAGE_SIZE:]
-                package_header = struct.pack(f'!IIII', PACKAGE_SIZE, package_index, package_quantity, checksum)
+                package_header = struct.pack(f'!IIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify)
                 package = package_header + message_bytearray
 
                 client_socket.sendto(package, database.server_address_tuple) #envia o pacote pro backend

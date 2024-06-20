@@ -28,10 +28,10 @@ def receive_message():
 
         header = initial_message[:HEADER_SIZE]
         message_received_bytes = initial_message[HEADER_SIZE:]
-        packageSize, packageIndex, packagesQuantity, checksum = struct.unpack('!IIII', header)
+        packageSize, packageIndex, packagesQuantity, hashVerify = struct.unpack('!IIII', header)
         decoded_message = message_received_bytes.decode("ISO-8859-1")
 
-        if checksum != crc32(message_received_bytes):
+        if hashVerify != crc32(message_received_bytes):
             decoded_message += ' [MENSAGEM COM PACOTE PERDIDO]'
 
         for address in clients_address:
