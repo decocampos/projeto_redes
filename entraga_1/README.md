@@ -83,9 +83,14 @@ Este projeto demonstra a utilização de sockets UDP para comunicação em rede,
 
 ## Estudantes
 André Campos 	avcl@cin.ufpe.br
+
 Felipe Santos	fss9@cin.ufpe.br
+
 Arthur Santos	asms@cin.ufpe.br
+
 Matheus Pessoa	mop2@cin.ufpe.br
+
 Lucas Figueiredo	lfa5@cin.ufpe.br
+
 Lucas Morais	llxm@cin.ufpe.br
 
