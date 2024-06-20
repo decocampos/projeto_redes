@@ -80,3 +80,12 @@ Este projeto implementa um sistema de comunicação em rede usando sockets UDP e
 ## Considerações Finais
 
 Este projeto demonstra a utilização de sockets UDP para comunicação em rede, tratamento de pacotes, e verificação de integridade de dados. Ele pode ser expandido para incluir mais funcionalidades, como criptografia de mensagens e autenticação de usuários.
+
+## Estudantes
+André Campos 	avcl@cin.ufpe.br
+Felipe Santos	fss9@cin.ufpe.br
+Arthur Santos	asms@cin.ufpe.br
+Matheus Pessoa	mop2@cin.ufpe.br
+Lucas Figueiredo	lfa5@cin.ufpe.br
+Lucas Morais	llxm@cin.ufpe.br
+
