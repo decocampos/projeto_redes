@@ -80,11 +80,3 @@ Este projeto implementa um sistema de comunicação em rede usando sockets UDP e
 ## Considerações Finais
 
 Este projeto demonstra a utilização de sockets UDP para comunicação em rede, tratamento de pacotes, e verificação de integridade de dados. Ele pode ser expandido para incluir mais funcionalidades, como criptografia de mensagens e autenticação de usuários.
-
-## Contribuições
-
-Sinta-se à vontade para contribuir com este projeto. Sugestões e melhorias são sempre bem-vindas!
-
-## Licença
-
-Este projeto está licenciado sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
