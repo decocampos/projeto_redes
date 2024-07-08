@@ -18,7 +18,6 @@ PACKAGE_SIZE = database.packages_size
 
 ACK = False
 NACK = False
-sent = False
 sequence_number = None
 
 def define_sequence():
@@ -34,7 +33,7 @@ def define_sequence():
 
 
 def receive_message():
-    global ACK, NACK, sequence_number
+    global ACK, NACK
     while True:
         message_garbage, _ = client_socket.recvfrom(1024)
         message = message_garbage.decode("ISO-8859-1")
