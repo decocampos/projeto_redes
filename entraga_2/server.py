@@ -28,8 +28,10 @@ def receive_message():
 
         header = initial_message[:HEADER_SIZE]
         message_received_bytes = initial_message[HEADER_SIZE:]
-        packageSize, packageIndex, packagesQuantity, hashVerify = struct.unpack('!IIII', header)
+        packageSize, packageIndex, packagesQuantity, hashVerify, sequence_number = struct.unpack('!IIIII', header)
         decoded_message = message_received_bytes.decode("ISO-8859-1")
+
+        print(sequence_number)
 
         if hashVerify != crc32(message_received_bytes):
             acknowledgement = '//NACK//'

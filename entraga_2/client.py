@@ -19,11 +19,22 @@ PACKAGE_SIZE = database.packages_size
 ACK = False
 NACK = False
 sent = False
+sequence_number = None
+
+def define_sequence():
+    global sequence_number
+    print(sequence_number)
+    if sequence_number is not None:
+        print("hello" + str(sequence_number))
+        sequence_number = (sequence_number + 1) % 2
+    else:
+        sequence_number = 0
+    return sequence_number
 
 
 
 def receive_message():
-    global ACK, NACK
+    global ACK, NACK, sequence_number
     while True:
         message_garbage, _ = client_socket.recvfrom(1024)
         message = message_garbage.decode("ISO-8859-1")
@@ -50,7 +61,7 @@ def corrupt_data(byte_data):
 
 def client():
     conection_with_server = False
-    global username, ACK, NACK
+    global username, ACK, NACK, sequence_number
 
     #======================================================================================
     #caso 1: Logar novo usuário
@@ -100,14 +111,13 @@ def client():
             hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
 
             message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
-            package_header = struct.pack(f'!IIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify)
+            package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify, define_sequence())
             package = package_header + corrupt_data(message_bytearray)
 
             client_socket.sendto(package, database.server_address_tuple)  # envia o pacote pro backend
 
 
             while charactesrs:
-                print(ACK)
                 if ACK:
                     encoded_characters = encoded_characters[PACKAGE_SIZE:]
                     charactesrs = charactesrs[PACKAGE_SIZE:] #retira os pacotes enviados
@@ -117,7 +127,8 @@ def client():
                         hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
 
                         message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
-                        package_header = struct.pack(f'!IIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify)
+                        package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity,
+                                                     hashVerify, define_sequence())
                         package = package_header + message_bytearray
 
                         client_socket.sendto(package, database.server_address_tuple) #envia o pacote pro backend
@@ -127,7 +138,8 @@ def client():
                     hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
 
                     message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
-                    package_header = struct.pack(f'!IIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify)
+                    package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify,
+                                                 define_sequence())
                     package = package_header + message_bytearray
 
                     client_socket.sendto(package, database.server_address_tuple)  # envia o pacote pro backend
