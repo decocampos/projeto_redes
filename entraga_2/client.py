@@ -19,6 +19,7 @@ PACKAGE_SIZE = database.packages_size
 ACK = False
 NACK = False
 sequence_number = None
+running = True
 
 def define_sequence():
     global sequence_number
@@ -33,20 +34,24 @@ def define_sequence():
 
 
 def receive_message():
-    global ACK, NACK
-    while True:
-        message_garbage, _ = client_socket.recvfrom(1024)
-        message = message_garbage.decode("ISO-8859-1")
-        print(message)
-        if message == '//ACK//':
-            ACK = True
-            NACK = False
-        elif message == '//NACK//':
-            ACK = False
-            NACK = True
-        else:
-            ACK = False
-            NACK = False
+    global ACK, NACK, running
+    while running:
+        try:
+            message_garbage, _ = client_socket.recvfrom(1024)
+            message = message_garbage.decode("ISO-8859-1")
+            print(message)
+            if message == '//ACK//':
+                ACK = True
+                NACK = False
+            elif message == '//NACK//':
+                ACK = False
+                NACK = True
+            else:
+                ACK = False
+                NACK = False
+        except socket.error:
+            break 
+        
 
 def corrupt_data(byte_data):
     # Convert data to a list of bytes
@@ -60,14 +65,14 @@ def corrupt_data(byte_data):
 
 def client():
     conection_with_server = False
-    global username, ACK, NACK, sequence_number
+    global username, ACK, NACK, sequence_number, running
 
     #======================================================================================
     #caso 1: Logar novo usuário
     #caso 2: Deslogar usuário
     #caso 3: Usuário logado quer mandar mensagem
     #=============================LOOP PRINCIPAL===========================================
-    while True:
+    while running:
         command_or_message = input("")
 
         # =========================================CASO 1=============================================
@@ -93,6 +98,7 @@ def client():
 
             else:
                 client_socket.sendto(f"*#*{username}  nao esta mais entre nos. :(".encode("ISO-8859-1"), ('localhost', SERVER_ADDRESS_INT))
+                running = False
         # =============================================CASO 3=========================================
 
         elif conection_with_server:
@@ -148,7 +154,18 @@ def client():
         else:
             print(default_output.default_output_message())
 
+
+def close_client():
+    global running
+    running = False
+    client_socket.close()
+    print('porta fechada')
+
 receive_thread = threading.Thread(target=receive_message) #cria um thread para a funcao receive_message
 receive_thread.start() #starta a thread
 
-client()
+try:
+    client()
+finally:
+    close_client()
+    receive_thread.join()
