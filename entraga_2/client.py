@@ -83,8 +83,6 @@ def client():
             encoded_characters = charactesrs.encode("ISO-8859-1")
             package_quantity = math.ceil(len(charactesrs) / PACKAGE_SIZE)
             package_index = 0
-            ACK = False
-            NACK = False
 
             while charactesrs:
                 message_bytearray = bytearray()
@@ -94,21 +92,29 @@ def client():
                 package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify, define_sequence())
                 package = package_header + message_bytearray
 
-                while True:
+                attempts = 0
+                max_attempts = 5
+                while attempts < max_attempts:
                     client_socket.sendto(package, database.server_address_tuple)
                     print(f'Pacote com seq_num: {sequence_number} enviado.')
 
-                    client_socket.settimeout(2)
+                    client_socket.settimeout(5)  # Tempo de espera ajustado para 5 segundos
                     try:
                         ack_message, _ = client_socket.recvfrom(1024)
                         ack_message = ack_message.decode("ISO-8859-1")
                         if ack_message == '//ACK//':
                             print(f'ACK para seq_num: {sequence_number} recebido.')
-                            break
+                            break  # Sai do loop de tentativas se ACK recebido
                         elif ack_message == '//NACK//':
                             print(f'NACK recebido. Reenviando pacote seq_num: {sequence_number}.')
                     except socket.timeout:
                         print(f'Tempo esgotado para seq_num: {sequence_number}. Reenviando pacote...')
+                    
+                    attempts += 1
+
+                if attempts == max_attempts:
+                    print(f'Falha ao enviar pacote seq_num: {sequence_number} após {max_attempts} tentativas.')
+                    break
 
                 package_index += 1
                 charactesrs = charactesrs[PACKAGE_SIZE:]
