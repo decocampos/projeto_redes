@@ -47,7 +47,7 @@ def receive_message():
                 print(f'Recebido pacote seq_num: {sequence_number} de {ip_client}')
                 
                 # Enviar ACK e atualizar o número de sequência esperado
-                acknowledgement = f'//ACK//{sequence_number}'
+                acknowledgement = '//ACK//'
                 expected_sequence_number[ip_client] = (expected_seq_num + 1) % 2
                 
                 for address in clients_address:
@@ -67,7 +67,7 @@ def receive_message():
                             messages_queue.put((packagesQuantity, message_to_send, ip_client))
             else:
                 print(f'Erro de sequência ou dados corrompidos do cliente {ip_client}')
-                acknowledgement = f'//NACK//{sequence_number}'
+                acknowledgement = '//NACK//'
 
             # Envia ACK ou NACK
             server_socket.sendto(acknowledgement.encode("ISO-8859-1"), ip_client)
