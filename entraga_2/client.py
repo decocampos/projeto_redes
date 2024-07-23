@@ -108,11 +108,17 @@ def client():
                     try:
                         ack_message, _ = client_socket.recvfrom(1024)
                         ack_message = ack_message.decode("ISO-8859-1")
-                        if ack_message == '//ACK//':
-                            print(f'ACK para seq_num: {sequence_number} recebido.')
-                            break  # Sai do loop de tentativas se ACK recebido
-                        elif ack_message == '//NACK//':
-                            print(f'NACK recebido. Reenviando pacote seq_num: {sequence_number}.')
+                        
+                        if ack_message.startswith('//ACK//'):
+                            ack_sequence = int(ack_message.split('//')[2])
+                            if ack_sequence == sequence_number:
+                                print(f'ACK para seq_num: {sequence_number} recebido.')
+                                break
+        
+                        elif ack_message.startswith('//NACK//'):
+                            nack_sequence = int(ack_message.split('//')[2])
+                            if nack_sequence == sequence_number:
+                                print(f'NACK recebido. Reenviando pacote seq_num: {sequence_number}.')
                     except socket.timeout:
                         print(f'Tempo esgotado para seq_num: {sequence_number}. Reenviando pacote...')
                     
