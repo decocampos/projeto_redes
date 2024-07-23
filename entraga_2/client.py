@@ -30,18 +30,24 @@ def define_sequence():
     return sequence_number
 
 def receive_message():
-    global ACK, NACK, running
+    global ACK, NACK, running, sequence_number
     while running:
         try:
             message_garbage, _ = client_socket.recvfrom(1024)
             message = message_garbage.decode("ISO-8859-1")
             print(message)
-            if message == '//ACK//':
-                ACK = True
-                NACK = False
-            elif message == '//NACK//':
-                ACK = False
-                NACK = True
+
+            if message.startswith('//ACK//'):
+                ack_sequence = int(message.split('//')[2])
+                if ack_sequence == sequence_number:
+                    ACK = True
+                    NACK = False
+
+            elif message.startswith('//NACK//'):
+                nack_sequence = int(message.split('//')[2])
+                if nack_sequence == sequence_number:
+                    ACK = False
+                    NACK = True
             else:
                 ACK = False
                 NACK = False
