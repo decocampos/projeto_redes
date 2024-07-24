@@ -5,6 +5,7 @@ import threading
 import random
 from zlib import crc32
 import struct
+import os
 
 #IMPORTAÇÃO DA BIBLIOTECA AUTORAL DO PROJETO
 from suport import database, convert_str_to_txt, default_output
@@ -15,64 +16,44 @@ random_door = random.randint(1025, 24999)
 client_socket.bind(('', random_door))
 SERVER_ADDRESS_INT = database.server_adress_1
 PACKAGE_SIZE = database.packages_size
-
-ACK = False
-NACK = False
-sequence_number = None
-running = True
-
-def define_sequence():
-    global sequence_number
-    print(sequence_number)
-    if sequence_number is not None:
-        print("hello" + str(sequence_number))
-        sequence_number = (sequence_number + 1) % 2
-    else:
-        sequence_number = 0
-    return sequence_number
-
-
-
 def receive_message():
-    global ACK, NACK, running
-    while running:
-        try:
-            message_garbage, _ = client_socket.recvfrom(1024)
-            message = message_garbage.decode("ISO-8859-1")
-            print(message)
-            if message == '//ACK//':
-                ACK = True
-                NACK = False
-            elif message == '//NACK//':
-                ACK = False
-                NACK = True
-            else:
-                ACK = False
-                NACK = False
-        except socket.error:
-            break 
+    while True:
+        message_garbage, _ = client_socket.recvfrom(1024)
+        message = message_garbage.decode()
         
+        pkt_number_split = message.split("*PKT-")[1]
+        pkt_number = int(pkt_number_split.split("-")[0])
+        
+        pkt_quantity = pkt_number_split.split(f"{pkt_number}-")[1]
 
-def corrupt_data(byte_data):
-    # Convert data to a list of bytes
-    # Randomly flip a bit in a byte
-    index = random.randint(0, len(byte_data) - 1)
-    bit = 1 << random.randint(0, 7)
-    byte_data[0] ^= bit
+        try:
+            pkt_quantity = int(pkt_quantity.split("*")[0])
+            
+            with open("receive.txt", mode="a") as file:
+                file.write(message.replace(f"*PKT-{pkt_number}-{pkt_quantity}*", ""))
+        
+            if pkt_number + 1 == pkt_quantity:
+                with open("receive.txt", mode="r") as file_read:
+                    print(file_read.read())
 
-    return byte_data
+                os.remove("receive.txt")
+        except:
+            print(message.replace(f"*PKT-{pkt_number}-{pkt_quantity}*", ""))
+            
 
 
 def client():
     conection_with_server = False
-    global username, ACK, NACK, sequence_number, running
+    global username
+    global package_quantity
+    
 
     #======================================================================================
     #caso 1: Logar novo usuário
     #caso 2: Deslogar usuário
     #caso 3: Usuário logado quer mandar mensagem
     #=============================LOOP PRINCIPAL===========================================
-    while running:
+    while True:
         command_or_message = input("")
 
         # =========================================CASO 1=============================================
@@ -98,7 +79,6 @@ def client():
 
             else:
                 client_socket.sendto(f"*#*{username}  nao esta mais entre nos. :(".encode("ISO-8859-1"), ('localhost', SERVER_ADDRESS_INT))
-                running = False
         # =============================================CASO 3=========================================
 
         elif conection_with_server:
@@ -110,62 +90,27 @@ def client():
             encoded_characters = charactesrs.encode("ISO-8859-1")
             package_quantity = math.ceil(len(charactesrs)/PACKAGE_SIZE)
             package_index = 0
-            ACK = False
-            NACK = False
-            message_bytearray = bytearray()
-            hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
-
-            message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
-            package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify, define_sequence())
-            package = package_header + corrupt_data(message_bytearray)
-
-            client_socket.sendto(package, database.server_address_tuple)  # envia o pacote pro backend
-
 
             while charactesrs:
-                if ACK:
-                    encoded_characters = encoded_characters[PACKAGE_SIZE:]
-                    charactesrs = charactesrs[PACKAGE_SIZE:] #retira os pacotes enviados
-                    package_index = package_index + 1 #pula pra proximo pacote
-                    if charactesrs:
-                        message_bytearray = bytearray()
-                        hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
 
-                        message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
-                        package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity,
-                                                     hashVerify, define_sequence())
-                        package = package_header + message_bytearray
+                message_bytearray = bytearray()
+                hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
 
-                        client_socket.sendto(package, database.server_address_tuple) #envia o pacote pro backend
-                    ACK = False
-                elif NACK:
-                    message_bytearray = bytearray()
-                    hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
+                message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
+                encoded_characters = encoded_characters[PACKAGE_SIZE:]
+                package_header = struct.pack(f'!IIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify)
+                package = package_header + message_bytearray
 
-                    message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
-                    package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify,
-                                                 define_sequence())
-                    package = package_header + message_bytearray
+                client_socket.sendto(package, database.server_address_tuple) #envia o pacote pro backend
 
-                    client_socket.sendto(package, database.server_address_tuple)  # envia o pacote pro backend
-                    NACK = False
-
+                charactesrs = charactesrs[PACKAGE_SIZE:] #retira os pacotes enviados
+                package_index = package_index + 1 #pula pra proximo pacote
 
         else:
             print(default_output.default_output_message())
 
 
-def close_client():
-    global running
-    running = False
-    client_socket.close()
-    print('porta fechada')
-
 receive_thread = threading.Thread(target=receive_message) #cria um thread para a funcao receive_message
 receive_thread.start() #starta a thread
 
-try:
-    client()
-finally:
-    close_client()
-    receive_thread.join()
+client()
