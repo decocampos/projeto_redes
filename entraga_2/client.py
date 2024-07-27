@@ -3,6 +3,7 @@ import math
 import socket
 import threading
 import random
+import time
 from zlib import crc32
 import struct
 
@@ -145,35 +146,40 @@ def client():
             package = package_header + message_bytearray
 
             client_socket.sendto(package, database.server_address_tuple)  # envia o pacote pro backend
-
+            start_time = time.time()
+            timeout = 5
+    
             while charactesrs:
-                if ACK:
-                    encoded_characters = encoded_characters[PACKAGE_SIZE:]
-                    charactesrs = charactesrs[PACKAGE_SIZE:]  # retira os pacotes enviados
-                    package_index = package_index + 1  # pula pra proximo pacote
+                print(f'start: {start_time}')
+                while (time.time() - start_time) < timeout:
+                    if ACK:
+                        encoded_characters = encoded_characters[PACKAGE_SIZE:]
+                        charactesrs = charactesrs[PACKAGE_SIZE:] #retira os pacotes enviados
+                        package_index = package_index + 1 #pula pra proximo pacote
+                        if charactesrs:
+                            message_bytearray = bytearray()
+                            hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
+
+                            message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
+                            package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity,
+                                                        hashVerify, define_sequence())
+                            package = package_header + message_bytearray
+
+                            client_socket.sendto(package, database.server_address_tuple) #envia o pacote pro backend
+                            start_time = time.time()
+                        ACK = False
+                else:
                     if charactesrs:
                         message_bytearray = bytearray()
                         hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
 
                         message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
-                        package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity,
-                                                     hashVerify, define_sequence())
+                        package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify,
+                                                    define_sequence())
                         package = package_header + message_bytearray
 
                         client_socket.sendto(package, database.server_address_tuple)  # envia o pacote pro backend
-                    ACK = False
-                elif NACK:
-                    message_bytearray = bytearray()
-                    hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
-
-                    message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
-                    package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify,
-                                                 define_sequence())
-                    package = package_header + message_bytearray
-
-                    client_socket.sendto(package, database.server_address_tuple)  # envia o pacote pro backend
-                    NACK = False
-
+                        start_time = time.time()
 
         else:
             print(default_output.default_output_message())
