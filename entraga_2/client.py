@@ -66,6 +66,7 @@ def receive_message():
                 #print(f"bye + {package_quantity}")
                 if len(received_messages[package_quantity]) == package_quantity:
                     print(''.join(received_messages[package_quantity]))
+                    del received_messages[package_quantity]
                 print(received_messages)
 
         except socket.error:
