@@ -77,10 +77,15 @@ def receive_message():
                     with open(file, encoding="ISO-8859-1") as txt:
                         message = txt.read()
                         time_data = get_time_data.get_time_data()
-                        if packageIndex == 0:
+                        if packagesQuantity == 1:
                             message_to_send = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{message}" {time_data}'
                         else:
-                            message_to_send = message
+                            if packageIndex == 0:
+                                message_to_send = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{message}'
+                            elif packageIndex + 1 == packagesQuantity:
+                                message_to_send = f'{message}" {time_data}'
+                            else:
+                                message_to_send = message
                         with dictionary_lock:
                             package_header = struct.pack(f'!III', packageIndex, packagesQuantity, crc32(message_to_send.encode("ISO-8859-1")))
                             print(len(package_header))
