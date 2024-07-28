@@ -63,40 +63,41 @@ def receive_message():
 
             if hashVerify != crc32(message_received_bytes):
                 acknowledgement = '//NACK//'
+                server_socket.sendto(acknowledgement.encode("ISO-8859-1"), ip_client)
 
             else:
                 acknowledgement = '//ACK//'
 
-            server_socket.sendto(acknowledgement.encode("ISO-8859-1"), ip_client)
+                server_socket.sendto(acknowledgement.encode("ISO-8859-1"), ip_client)
 
-            for address in clients_address:
-                if address == ip_client:
-                    client_index = clients_address.index(address)
-                    name = clients_usernames[client_index]
-                    file = convert_str_to_txt.convert_str_to_txt(name, decoded_message, backEnd=True)
-                    with open(file, encoding="ISO-8859-1") as txt:
-                        message = txt.read()
-                        time_data = get_time_data.get_time_data()
-                        if packagesQuantity == 1:
-                            message_to_send = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{message}" {time_data}'
-                        else:
-                            if packageIndex == 0:
-                                message_to_send = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{message}'
-                            elif packageIndex + 1 == packagesQuantity:
-                                message_to_send = f'{message}" {time_data}'
+                for address in clients_address:
+                    if address == ip_client:
+                        client_index = clients_address.index(address)
+                        name = clients_usernames[client_index]
+                        file = convert_str_to_txt.convert_str_to_txt(name, decoded_message, backEnd=True)
+                        with open(file, encoding="ISO-8859-1") as txt:
+                            message = txt.read()
+                            time_data = get_time_data.get_time_data()
+                            if packagesQuantity == 1:
+                                message_to_send = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{message}" {time_data}'
                             else:
-                                message_to_send = message
-                        with dictionary_lock:
-                            package_header = struct.pack(f'!III', packageIndex, packagesQuantity, crc32(message_to_send.encode("ISO-8859-1")))
-                            print(len(package_header))
-                            package = package_header + message_to_send.encode("ISO-8859-1")
+                                if packageIndex == 0:
+                                    message_to_send = f'{ip_client[0]}:{ip_client[1]}/~{name}: "{message}'
+                                elif packageIndex + 1 == packagesQuantity:
+                                    message_to_send = f'{message}" {time_data}'
+                                else:
+                                    message_to_send = message
+                            with dictionary_lock:
+                                package_header = struct.pack(f'!III', packageIndex, packagesQuantity, crc32(message_to_send.encode("ISO-8859-1")))
+                                print(len(package_header))
+                                package = package_header + message_to_send.encode("ISO-8859-1")
 
-                            if ip_client not in dictionary_messages:
-                                dictionary_messages[ip_client] = {}
-                            if packagesQuantity not in dictionary_messages[ip_client]:
-                                dictionary_messages[ip_client][packagesQuantity] = []
-                            dictionary_messages[ip_client][packagesQuantity].append((message_to_send, package_header))
-                        #messages_queue.put((packagesQuantity, message_to_send, ip_client))
+                                if ip_client not in dictionary_messages:
+                                    dictionary_messages[ip_client] = {}
+                                if packagesQuantity not in dictionary_messages[ip_client]:
+                                    dictionary_messages[ip_client][packagesQuantity] = []
+                                dictionary_messages[ip_client][packagesQuantity].append((message_to_send, package_header))
+                            #messages_queue.put((packagesQuantity, message_to_send, ip_client))
         except socket.error:
             break
 
