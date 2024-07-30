@@ -18,7 +18,6 @@ SERVER_ADDRESS_INT = database.server_adress_1
 PACKAGE_SIZE = database.packages_size
 
 ACK = False
-NACK = False
 sequence_number = None
 running = True
 received_messages = {}
@@ -34,19 +33,15 @@ def define_sequence():
 
 
 def receive_message():
-    global ACK, NACK, running
+    global ACK, running
     while running:
         try:
             message_garbage, _ = client_socket.recvfrom(1024)
             message = message_garbage.decode("ISO-8859-1")
-            if message == '//ACK//':
-                print(message)
-                ACK = True
-                NACK = False
-            elif message == '//NACK//':
-                print(message)
-                ACK = False
-                NACK = True
+            if message.startswith('//ACK//'):
+                ack_sequence = int(message.split('//')[2])
+                if ack_sequence == sequence_number:
+                    ACK = True
             else:
                 header = message_garbage[:12]
                 message_received_bytes = message_garbage[12:]
@@ -83,7 +78,7 @@ def corrupt_data(byte_data):
 
 def client():
     conection_with_server = False
-    global username, ACK, NACK, sequence_number, running
+    global username, ACK, sequence_number, running
 
     # ======================================================================================
     # caso 1: Logar novo usuário
@@ -132,7 +127,6 @@ def client():
             package_quantity = math.ceil(len(charactesrs) / PACKAGE_SIZE)
             package_index = 0
             ACK = False
-            NACK = False
             message_bytearray = bytearray()
             hashVerify = crc32(encoded_characters[:PACKAGE_SIZE])
 
