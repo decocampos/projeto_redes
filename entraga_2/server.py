@@ -26,6 +26,9 @@ NACK = False
 
 dictionary_lock = threading.Lock()
 
+# Dicionário para armazenar o número de sequência esperado para cada cliente
+expected_sequence_number = {}
+
 
 def receive_message():
     global running, ACK, NACK
@@ -55,12 +58,19 @@ def receive_message():
             packageSize, packageIndex, packagesQuantity, hashVerify, sequence_number = struct.unpack('!IIIII', header)
             decoded_message = message_received_bytes.decode("ISO-8859-1")
 
-            if hashVerify != crc32(message_received_bytes):
+             
+            if ip_client in expected_sequence_number:
+                expected_seq_num = expected_sequence_number[ip_client]
+            else:
+                expected_seq_num = 0  # Define 0 como inicial se não estiver definido
+
+            if hashVerify != crc32(message_received_bytes) or sequence_number != expected_seq_num:
                 acknowledgement = '//NACK//'
                 server_socket.sendto(acknowledgement.encode("ISO-8859-1"), ip_client)
 
             else:
                 acknowledgement = '//ACK//'
+                expected_sequence_number[ip_client] = (expected_seq_num + 1) % 2
 
                 server_socket.sendto(acknowledgement.encode("ISO-8859-1"), ip_client)
 
@@ -104,6 +114,7 @@ def broadcast():
                 client_name = username_garbage[3:]
                 clients_address.append(ip_client)
                 clients_usernames.append(client_name)
+                expected_sequence_number[ip_client] = 0
 
             elif decoded_message.startswith('*#*'):
                 message_split = decoded_message.split()
