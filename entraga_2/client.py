@@ -42,6 +42,8 @@ def receive_message():
                 ack_sequence = int(message.split('//')[2])
                 if ack_sequence == sequence_number:
                     ACK = True
+            elif message == '//NACK//':
+                pass
             else:
                 header = message_garbage[:12]
                 message_received_bytes = message_garbage[12:]
@@ -55,7 +57,6 @@ def receive_message():
                 else:
                     acknowledgement = '//ACK//'
                 ACK = False
-                NACK = False
                 client_socket.sendto(acknowledgement.encode("ISO-8859-1"),
                                      database.server_address_tuple)  # envia o pacote pro backend
                 if len(received_messages[package_quantity]) == package_quantity:
