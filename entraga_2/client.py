@@ -17,12 +17,13 @@ client_socket.bind(('', random_door))
 SERVER_ADDRESS_INT = database.server_adress_1
 PACKAGE_SIZE = database.packages_size
 
+#Definição dos parâmetros iniciais 
 ACK = False
 sequence_number = None
 running = True
 received_messages = {}
 
-
+#Função para a determinação do Sequence Number
 def define_sequence():
     global sequence_number
     if sequence_number is not None:
@@ -31,7 +32,7 @@ def define_sequence():
         sequence_number = 0
     return sequence_number
 
-
+#Função para quando o cliente receber uma chamada
 def receive_message():
     global ACK, running
     while running:
@@ -39,7 +40,7 @@ def receive_message():
             message_garbage, _ = client_socket.recvfrom(1024)
             message = message_garbage.decode("ISO-8859-1")
             if message.startswith('//ACK//'):
-                ack_sequence = int(message.split('//')[2])
+                ack_sequence = int(message.split('//')[2]) # Verificação do ACK e se o sequence number é o esperado
                 if ack_sequence == sequence_number:
                     ACK = True
             elif message == '//NACK//':
@@ -66,10 +67,8 @@ def receive_message():
         except socket.error:
             break
 
-
+#Função para corrompimento de pacotes
 def corrupt_data(byte_data):
-    # Convert data to a list of bytes
-    # Randomly flip a bit in a byte
     index = random.randint(0, len(byte_data) - 1)
     bit = 1 << random.randint(0, 7)
     byte_data[0] ^= bit
@@ -134,14 +133,13 @@ def client():
             message_bytearray.extend(encoded_characters[:PACKAGE_SIZE])
             package_header = struct.pack(f'!IIIII', PACKAGE_SIZE, package_index, package_quantity, hashVerify,
                                          define_sequence())
-            package = package_header + message_bytearray
+            package = package_header + corrupt_data(message_bytearray)
 
             client_socket.sendto(package, database.server_address_tuple)  # envia o pacote pro backend
             start_time = time.time()
             timeout = 5
 
             while charactesrs:
-                print(f'start: {start_time}')
                 while (time.time() - start_time) < timeout:
                     if ACK:
                         encoded_characters = encoded_characters[PACKAGE_SIZE:]
