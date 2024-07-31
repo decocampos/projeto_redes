@@ -15,10 +15,6 @@ HEADER_SIZE = database.header_size
 clients_usernames = []
 clients_address = []
 
-#dicionários para armazenar mensagens e mensagens enviadas
-dictionary_messages = {}
-sent_messages = {}
-
 #fila para armazenar mensagens a serem transmitidas
 messages_queue = queue.Queue()
 
