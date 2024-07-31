@@ -31,9 +31,6 @@ running = True
 ACK = False
 NACK = False
 
-#Lock para controlar o acesso ao dicionário
-dictionary_lock = threading.Lock()
-
 #dicionário para armazenar o número de sequência esperado para cada cliente
 expected_sequence_number = {}
 
