@@ -69,7 +69,7 @@ def receive_message():
                 server_socket.sendto(acknowledgement.encode("ISO-8859-1"), ip_client)
 
             else:
-                acknowledgement = '//ACK//'
+                acknowledgement = f'//ACK//{sequence_number}'
                 expected_sequence_number[ip_client] = (expected_seq_num + 1) % 2
 
                 server_socket.sendto(acknowledgement.encode("ISO-8859-1"), ip_client)
